@@ -59,6 +59,10 @@ The tool is in weekly use against a real Unreal Engine game project.
 
 **Supervised automation**. Phases are still run manually in sequence. The operator reviews artifacts, invokes Doctor when needed, and retains final authority over anything irreversible.
 
+## Case Study
+
+This repository includes a sanitized case study derived from supervised real-world merge runs, with the full write-up kept separate so the README stays concise. If you want the deeper context, start with the [case study overview](docs/case-study/README.md), then read the [real-run walkthrough](docs/case-study/real-run-walkthrough.md) and the [safety model](docs/case-study/safety-model.md).
+
 ---
 
 ## Architecture
