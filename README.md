@@ -1,8 +1,8 @@
 # P4 Merge Supervisor
 
-A Python-based agentic workflow supervisor for large-scale Perforce branch integrations, built from a real operational problem and packaged as a clear AI engineering case study.
+A Python-based agentic workflow supervisor for large-scale Perforce branch integrations, built from a real operational problem and being packaged into a cleaner portfolio-safe repository.
 
-Currently running in supervised automation mode against a real Unreal Engine game project with close to 1 million files.
+The core idea is simple: do not treat a massive Perforce merge as one opaque command. Break it into explicit phases, write structured artifacts at each step, and preserve a human boundary before irreversible submit.
 
 ---
 
@@ -10,12 +10,12 @@ Currently running in supervised automation mode against a real Unreal Engine gam
 
 Running a large Perforce branch integration sounds straightforward. In practice, it is not.
 
-When your branch has close to **1 million files**, a merge can take 4-5 hours to run. During that time:
+When a branch is extremely large, a merge can take hours to run. During that time:
 
-- The script can silently fail with no recovery mechanism
-- You end up manually babysitting the process, checking whether it is still alive
-- When it does finish, the resulting changelist can be too large and painful to submit
-- Failures are expensive because there is no clean, structured way to resume from the point of failure
+- the process can fail with weak recovery paths
+- the operator ends up manually babysitting long-running commands
+- the resulting changelist can be too large and painful to review or submit
+- failures are expensive when there is no clean, structured way to resume from the point of failure
 
 This tool was built to reduce that operational pain, not as a toy demo and not as an attempt to fully automate irreversible decisions.
 
@@ -23,45 +23,49 @@ This tool was built to reduce that operational pain, not as a toy demo and not a
 
 ## How It Evolved
 
-### v0 - Simple preflight checker
+### v0 - Preflight and validation
 
-Started as a basic Python script to validate Perforce login state, workspace configuration, and source/target streams before starting a merge.
+Started as a Python script to validate Perforce login state, workspace configuration, merge boundaries, and source or target assumptions before starting a merge.
 
-### v1 - Monitoring and babysitting reduction
+### v1 - Artifact-driven merge staging
 
-After watching merges die mid-run with weak diagnostics, the tool gained better logging, artifacts, and watchdog-based detection for no-progress hangs.
+As long-running merges proved fragile, the tool gained better reporting, explicit run artifacts, and a more structured staged-merge workflow.
 
-### v2 - Batch processing and smaller CLs
+### v2 - Batch-oriented review flow
 
-Once it became clear that giant all-in-one merges produced painful, hard-to-submit changelists, the workflow shifted to path-scoped batches.
+Once large all-in-one merges became painful to inspect, the workflow shifted toward batch-scoped staging, cleanup, and changelist organization.
 
-### v3 - AI-assisted diagnostic layer
+### v3 - Supervision and Doctor recovery
 
-After repeated failure patterns showed up across runs, the supervisor gained a modular Doctor layer with deterministic and LLM-backed diagnosis, a policy gate, and a recovery executor.
+After repeated failure patterns appeared across runs, the system gained a supervised runtime, typed status and resume models, a Doctor layer, policy-gated recovery, and verification-aware retry handling.
 
 ---
 
 ## Current State
 
-The tool is in weekly use against a real Unreal Engine game project.
+The repository currently represents the merge-preparation and supervised recovery core.
 
 ### Implemented phases
 
 | Phase | Status | What it does |
 |---|---|---|
-| `dry-run` | Live | Read-only preflight, boundary CL selection, merge preview |
-| `run` | Live | Batch-scoped merges, safe trivial resolves, artifact writing, watchdog hang detection |
-| `sanitize` | Live | Clean staged result, revert known junk, isolate blockers |
-| `split` | Live (hardening) | Break large CL into reviewable area-grouped changelists |
-| `doctor` | Live (supervised) | AI-assisted failure diagnosis with policy gate and recovery executor |
+| `dry-run` | Live | Read-only preflight, boundary selection, merge preview |
+| `run` | Live | Batch-scoped staging of merge work and run artifact writing |
+| `resolve` | Live | Apply batch-specific resolve strategy and isolate leftovers |
+| `sanitize` | Live | Clean staged result and preserve review buckets |
+| `resolve-conflicts` | Live | Selectively push safe conflict buckets further while preserving human review |
+| `split` | Live | Break staged work into smaller review-oriented changelists when needed |
+| `doctor` | Live (supervised) | Diagnose blocked states, apply policy, and support bounded recovery |
+| `supervise` | Live | Coordinate multi-phase automated merge preparation flow |
 
 ### Current automation level
 
-**Supervised automation**. Phases are still run manually in sequence. The operator reviews artifacts, invokes Doctor when needed, and retains final authority over anything irreversible.
+**Supervised automation**.
 
-## Case Study
+The system is validated for automated merge preparation, but it still preserves a human authority boundary before final submit.
 
-This repository includes a sanitized case study derived from supervised real-world merge runs, with the full write-up kept separate so the README stays concise. If you want the deeper context, start with the [case study overview](docs/case-study/README.md), then read the [real-run walkthrough](docs/case-study/real-run-walkthrough.md) and the [safety model](docs/case-study/safety-model.md).
+- End-to-end validated for automated merge preparation
+- Not yet end-to-end validated for submit or production completion
 
 ---
 
@@ -70,34 +74,35 @@ This repository includes a sanitized case study derived from supervised real-wor
 ```text
 Operator
   |
-  +--> dry-run          Read-only preflight and preview
+  +--> dry-run              Read-only preflight and preview
   |
-  +--> run              Batch merges, resolve, watchdog, artifacts
+  +--> supervise            Parent runtime for phase coordination
   |       |
-  |       +--> [if blocked] --> doctor
-  |                              |
-  |                              +--> DoctorBlockedCase
-  |                              |
-  |                              +--> diagnosis mode
-  |                                      - deterministic
-  |                                      - llm
-  |                              |
-  |                              +--> DoctorDecision
-  |                              |
-  |                              +--> policy gate
-  |                                      - execute action
-  |                                      - pause cleanly
+  |       +--> run              Stage merge work into changelists
+  |       |
+  |       +--> resolve          Apply resolve strategy per batch
+  |       |       |
+  |       |       +--> [if blocked] --> doctor
+  |       |                              |
+  |       |                              +--> blocked case
+  |       |                              +--> deterministic or llm diagnosis
+  |       |                              +--> policy gate
+  |       |                              +--> optional bounded recovery
+  |       |
+  |       +--> sanitize         Clean staged result
+  |       |
+  |       +--> resolve-conflicts
+  |               |
+  |               +--> auto-acceptable conflict buckets only
   |
-  +--> sanitize         Clean staged result
+  +--> split                Optional review-oriented CL restructuring
   |
-  +--> split            Break into reviewable CLs
-  |
-  +--> [human submit]   Always manual, never automated
+  +--> [human submit]       Always manual, never automated
 ```
 
 **Core principle: Prepare everything, submit nothing.**
 
-This is intentionally a human-in-the-loop system. The AI can help classify failures and select from constrained recovery actions, but it does not get unlimited authority.
+This is intentionally a human-in-the-loop system. The AI can help diagnose blocked states and select from constrained recovery actions, but it does not get unlimited authority.
 
 ---
 
@@ -107,43 +112,35 @@ The Doctor layer is split into focused components:
 
 | Module | Responsibility |
 |---|---|
-| `doctor_models.py` | Typed data models such as blocked cases and decisions |
-| `doctor_layer.py` | Orchestration: load artifacts, choose mode, write outputs |
-| `doctor_provider.py` | Diagnosis providers: deterministic and current LLM provider implementation |
-| `doctor_policy.py` | Safety gate: validate decision against policy and threshold |
-| `doctor_executor.py` | Recovery execution for whitelisted actions only |
+| `doctor_models.py` | Typed runtime and decision models |
+| `doctor_layer.py` | Diagnosis orchestration and report shaping |
+| `doctor_provider.py` | Deterministic and LLM-backed diagnosis providers |
+| `doctor_policy.py` | Safety gate and execution policy |
+| `doctor_executor.py` | Recovery execution for allowed actions only |
+| `recovery_verifier.py` | Post-recovery verification and trusted resume bundle generation |
 
 ### Doctor flow
 
 ```text
-1. Load latest blocked phase artifact
-2. Build typed blocked case
-3. Choose mode: deterministic | llm
+1. Load blocked phase artifact
+2. Build typed blocked case and resume state
+3. Choose diagnosis mode
 4. Produce structured decision
-5. Validate output
+5. Validate machine-usable fields
 6. Apply policy gate
-7. Optionally run executor
-8. Write doctor-summary.*, doctor-decision.*, resume.*
+7. Optionally run bounded recovery
+8. Verify recovery result and emit trusted resume state
+9. Write doctor-summary.*, doctor-decision.*, resume.*
 ```
 
-### Safe action whitelist
+### Recovery model
 
-```python
-SAFE_WHITELIST = {
-    "retry_after_login_refresh",
-    "retry_after_connectivity_restore",
-    "retry_after_env_restore",
-    "retry_resolve_with_charset_override",
-    "kill_and_retry_same_phase_after_hang",
-    "pause_cleanly",
-}
-```
+The recovery path is deliberately conservative:
 
-Execution only happens with `--doctor-execute-whitelist`. Default behavior is conservative.
-
-### Current LLM provider
-
-The present LLM-backed provider is OpenAI-backed, but the README describes the architecture in provider-agnostic terms because the important boundary is deterministic vs LLM-backed diagnosis, not a specific vendor name.
+- actions are selected from constrained, code-defined recovery paths
+- execution is policy-gated rather than open-ended
+- verifier output determines whether the system can safely resume
+- failures fall back to pause or re-diagnosis rather than pretending recovery succeeded
 
 ---
 
@@ -153,60 +150,38 @@ These boundaries are intentional and non-negotiable.
 
 ### Always allowed
 
-- Read P4 state such as login validation, opened files, and stream history
-- Stage safe merge work such as preview merges and trivial resolves
-- Write reports and artifacts for operator review
-- Run Doctor diagnosis and policy evaluation
+- read Perforce state such as login validation, opened files, and stream history
+- stage merge work and write reports for operator review
+- run diagnosis and policy evaluation on blocked states
+- reorganize staged work into review-oriented buckets
 
 ### Never automated
 
-- **No submit** - the tool never runs `p4 submit`
-- **No content judgement** - unresolved Blueprint, source, and asset conflicts always go to a human
-- **No broad rollback** - large revert or backout actions are out of scope
-- **No hidden remapping** - stream or client ownership changes are never silent
-
----
-
-## Real Recovery: Charset Override
-
-The first real AI-driven recovery action is implemented:
-
-`retry_resolve_with_charset_override`
-
-The executor tries to target only files implicated by translation-failure evidence in the blocked artifact and logs. It falls back to a wider retry only if no targeted file set can be extracted.
-
-That reflects the broader design philosophy: be as surgical as possible and minimize blast radius.
-
----
-
-## Watchdog
-
-The supervisor includes a watchdog that monitors P4 subprocess progress:
-
-- Detects no-progress windows during long-running operations
-- Kills stuck subprocesses cleanly
-- Surfaces a `suspected_hang` blocked case for Doctor diagnosis
-- Uses configurable thresholds per phase
-
-One current hardening area is threshold tuning. Early real runs suggested that `900s` was too aggressive for large engine-heavy resolve work, and longer per-phase thresholds are more realistic.
+- **No submit** - the tool never performs final team-wide submit autonomously
+- **No hidden judgement on hard conflicts** - unresolved source, asset, or project-specific conflicts remain human decisions
+- **No unrestricted AI actions** - recovery is bounded by code and policy, not free-form model autonomy
+- **No silent environment remapping** - stream, client, or ownership assumptions should never change invisibly
 
 ---
 
 ## Observability
 
-Every run writes structured artifacts to `runs/<timestamp>/` so the operator can inspect what happened and why:
+Every phase writes structured artifacts so the operator can inspect what happened, why it happened, and what should run next.
+
+Examples include:
 
 ```text
-runs/2026-06-10_112728_573079/
-+-- merge-report.json
-+-- merge-report.txt
-+-- unresolved.txt
-+-- opened.txt
-+-- p4-commands.log
-+-- p4-errors.log
-+-- doctor-summary.*
-+-- doctor-decision.*
-+-- resume.*
+status.json
+status.txt
+merge-report.json
+resolve-summary.json
+sanitize-summary.json
+conflict-resolution-summary.json
+doctor-summary.json
+doctor-decision.json
+resume-state.json
+p4-commands.log
+p4-errors.log
 ```
 
 This is a key part of the design. The goal is not just automation, but debuggable automation.
@@ -215,48 +190,65 @@ This is a key part of the design. The goal is not just automation, but debuggabl
 
 ## Key Design Decisions
 
-**Why compact error packets instead of raw logs?**
-Raw P4 logs are noisy. The Doctor should receive the failing command, the error type, implicated files, and the most relevant recent lines rather than thousands of lines of low-signal output.
+**Why phases instead of one large script?**  
+Explicit phases make the workflow easier to reason about, easier to resume, and easier to test in isolation.
 
-**Why a whitelist instead of open-ended AI actions?**
-The system uses the LLM for constrained classification and recovery selection, not unrestricted autonomy. A wrong decision should fail conservatively.
+**Why artifacts everywhere?**  
+Long-running operational workflows need inspectable checkpoints. Terminal output alone is not enough.
 
-**Why a policy threshold before execution?**
-The model can be useful without being trusted absolutely. Below threshold, the system should pause cleanly and hand control back to the operator.
+**Why a policy gate before recovery execution?**  
+The model can be useful without being trusted absolutely. Low-confidence or out-of-policy decisions should pause cleanly.
 
-**Why separate deterministic and LLM modes?**
-Known failure patterns can be handled cheaply and reliably with rules. Novel or ambiguous failures benefit from LLM-backed diagnosis. Keeping those paths separate makes the system easier to reason about and test.
+**Why separate deterministic and LLM-backed diagnosis?**  
+Known patterns can be handled cheaply and predictably with rules. Ambiguous cases benefit from model assistance.
 
-**Why does the human always submit?**
+**Why does the human always submit?**  
 Perforce submissions affect the whole team. The final irreversible step remains manual by design.
 
-**Why subprocess instead of P4Python?**
-Subprocess calls are simpler to debug, the command logs are directly readable, and the workflow does not need a richer SDK abstraction to be effective.
+**Why subprocess rather than P4Python?**  
+CLI execution is easier to debug, the command logs are directly readable, and the workflow does not require a heavier SDK abstraction to be effective.
 
 ---
 
 ## What I Learned
 
-- Defining the boundary of AI authority is harder than wiring up the API call
-- Context engineering matters as much as prompt wording in real systems
-- Structured outputs and typed models make AI-in-the-loop workflows much safer
-- Conservative defaults build trust faster than aggressive autonomy
-- Real workflows expose edge cases that no clean design document predicts in advance
+- defining the boundary of AI authority is harder than wiring up the model call
+- context engineering matters as much as prompt wording in operational systems
+- typed models and structured outputs make AI-in-the-loop workflows safer
+- conservative defaults build trust faster than aggressive autonomy
+- real workflows expose edge cases that clean architecture diagrams do not predict in advance
 
 ---
 
 ## Tech Stack
 
 - Python
-- Perforce CLI via subprocess
-- Unreal Engine game project context
-- LLM-backed Doctor provider
-- Current provider implementation: OpenAI
+- Perforce CLI via `subprocess`
+- phase-based workflow architecture
+- typed runtime and artifact models
+- deterministic and LLM-backed Doctor diagnosis
+
+---
+
+## Repository Layout
+
+- `p4_weekly_merge.py`: CLI entrypoint, batch configuration, and shared orchestration helpers
+- `merge_phases/`: individual phase implementations
+- `merge_supervisor/`: supervision runtime models, doctor policy, provider, executor, and recovery verification logic
+- `merge_support/`: artifact handling and output helpers
+- `tests/`: regression coverage for resolve behavior, doctor recovery behavior, and public snapshot sanitization
+
+Future public repo structure will likely add:
+
+- `docs/architecture/`
+- `docs/case-study/`
+- `docs/visuals/`
 
 ---
 
 ## Status
 
-`dry-run`, `run`, `sanitize`, `split`, and `doctor` exist and are in active use.
-The tool is currently operating in **supervised automation mode**.
-Full unattended orchestration remains a future milestone rather than a current claim.
+`dry-run`, `run`, `resolve`, `sanitize`, `resolve-conflicts`, `split`, `doctor`, and `supervise` are present in this snapshot.
+
+The tool is currently operating as a **supervised merge-preparation system**.
+Final submit and production completion remain explicit human responsibility.

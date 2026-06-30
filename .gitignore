@@ -1,0 +1,25 @@
+# Public repo boundary: keep only core Python code and tests.
+
+# Ignore everything by default.
+*
+
+# Allow the gitignore itself and the public-facing docs.
+!.gitignore
+!README.md
+!STRUCTURE.md
+
+# Allow the core source tree.
+!p4_weekly_merge.py
+!merge_phases/
+!merge_phases/**
+!merge_supervisor/
+!merge_supervisor/**
+!merge_support/
+!merge_support/**
+!tests/
+!tests/**
+
+# Keep Python source and light test fixtures only.
+*.py[cod]
+__pycache__/
+.pytest_cache/
